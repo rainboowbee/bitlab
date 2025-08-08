@@ -88,12 +88,12 @@ export async function GET(request: NextRequest) {
       // Статистика по дням
       prisma.$queryRaw`
         SELECT 
-          DATE(created_at) as date,
+          DATE("createdAt") as date,
           COUNT(*) as new_users,
-          COUNT(CASE WHEN last_activity_at >= NOW() - INTERVAL '1 day' THEN 1 END) as active_users
+          COUNT(CASE WHEN "lastActivityAt" >= NOW() - INTERVAL '1 day' THEN 1 END) as active_users
         FROM telegram_users 
-        WHERE created_at >= ${startDate}
-        GROUP BY DATE(created_at)
+        WHERE "createdAt" >= ${startDate}
+        GROUP BY DATE("createdAt")
         ORDER BY date DESC
         LIMIT 30
       `
