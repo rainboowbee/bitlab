@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma'
 
 // POST /api/interactions - Создать новое взаимодействие
 export async function POST(request: NextRequest) {
@@ -71,14 +72,14 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
     
     // Формируем фильтры
-    const where: any = {}
+    const where: Prisma.InteractionWhereInput = {}
     
     if (telegramUserId) {
       where.telegramUserId = telegramUserId
     }
     
     if (interactionType) {
-      where.interactionType = interactionType
+      where.interactionType = interactionType as import('@/generated/prisma').InteractionType
     }
     
     // Получаем взаимодействия с пагинацией

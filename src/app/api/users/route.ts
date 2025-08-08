@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma'
 
 // GET /api/users - Получить список пользователей
 export async function GET(request: NextRequest) {
@@ -14,10 +15,10 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
     
     // Формируем фильтры
-    const where: any = {}
+    const where: Prisma.TelegramUserWhereInput = {}
     
     if (status) {
-      where.status = status
+      where.status = status as import('@/generated/prisma').UserStatus
     }
     
     if (search) {

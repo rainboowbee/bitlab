@@ -44,7 +44,7 @@ interface Interaction {
   id: string
   interactionType: string
   description: string | null
-  metadata: any
+  metadata: Record<string, unknown> | null
   createdAt: string
 }
 
