@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 // GET /api/users/[id] - Получить пользователя по ID
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  context: unknown
 ) {
   try {
+    const { params } = context as { params: { id: string } }
     const user = await prisma.telegramUser.findUnique({
       where: { id: params.id },
       include: {
@@ -46,10 +47,11 @@ export async function GET(
 
 // PUT /api/users/[id] - Обновить пользователя
 export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  context: unknown
 ) {
   try {
+    const { params } = context as { params: { id: string } }
     const body = await request.json()
     
     const {
@@ -109,10 +111,11 @@ export async function PUT(
 
 // DELETE /api/users/[id] - Удалить пользователя
 export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  request: Request,
+  context: unknown
 ) {
   try {
+    const { params } = context as { params: { id: string } }
     // Проверяем, существует ли пользователь
     const existingUser = await prisma.telegramUser.findUnique({
       where: { id: params.id }

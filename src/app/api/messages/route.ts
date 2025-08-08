@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma'
 
 // POST /api/messages - Создать новое сообщение
 export async function POST(request: NextRequest) {
@@ -78,14 +79,14 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
     
     // Формируем фильтры
-    const where: any = {}
+    const where: Prisma.MessageWhereInput = {}
     
     if (telegramUserId) {
       where.telegramUserId = telegramUserId
     }
     
     if (messageType) {
-      where.messageType = messageType
+      where.messageType = messageType as import('@/generated/prisma').MessageType
     }
     
     if (isFromBot !== null) {

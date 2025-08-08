@@ -50,8 +50,9 @@ export async function POST(request: NextRequest) {
     await createAdminSession(admin.id)
     
     // Возвращаем данные админа (без пароля)
-    const { password: _, ...adminData } = admin
-    
+    const { password: _password, ...adminData } = admin
+    void _password
+
     return NextResponse.json({
       admin: adminData,
       message: 'Login successful'
