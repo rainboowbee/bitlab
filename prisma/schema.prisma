@@ -1,0 +1,161 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Модель для пользователей Telegram бота
+model TelegramUser {
+  id                String   @id @default(cuid())
+  telegramId        BigInt   @unique // ID пользователя в Telegram
+  username          String?  // @username пользователя
+  firstName         String?  // Имя пользователя
+  lastName          String?  // Фамилия пользователя
+  phoneNumber       String?  // Номер телефона
+  languageCode      String?  // Код языка пользователя
+  isPremium         Boolean  @default(false) // Telegram Premium статус
+  isBot             Boolean  @default(false) // Является ли ботом
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lastActivityAt    DateTime @default(now()) // Последняя активность
+  status            UserStatus @default(ACTIVE) // Статус пользователя
+  tags              String[] // Теги для категоризации
+  notes             String?  // Заметки админа
+  source            String?  // Источник привлечения пользователя
+  
+  // Связи
+  messages          Message[]
+  interactions      Interaction[]
+  
+  @@map("telegram_users")
+}
+
+// Модель для админов CRM системы
+model Admin {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  password          String   // Хешированный пароль
+  firstName         String
+  lastName          String
+  role              AdminRole @default(ADMIN)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lastLoginAt       DateTime?
+  
+  // Связи
+  activities        AdminActivity[]
+  
+  @@map("admins")
+}
+
+// Модель для сообщений пользователей
+model Message {
+  id                String   @id @default(cuid())
+  telegramUserId    String
+  messageId         BigInt   // ID сообщения в Telegram
+  chatId            BigInt   // ID чата
+  text              String?  // Текст сообщения
+  messageType       MessageType
+  timestamp         DateTime
+  isFromBot         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  
+  // Связи
+  user              TelegramUser @relation(fields: [telegramUserId], references: [id], onDelete: Cascade)
+  
+  @@map("messages")
+}
+
+// Модель для взаимодействий пользователей
+model Interaction {
+  id                String   @id @default(cuid())
+  telegramUserId    String
+  interactionType   InteractionType
+  description       String?
+  metadata          Json?    // Дополнительные данные
+  createdAt         DateTime @default(now())
+  
+  // Связи
+  user              TelegramUser @relation(fields: [telegramUserId], references: [id], onDelete: Cascade)
+  
+  @@map("interactions")
+}
+
+// Модель для активности админов
+model AdminActivity {
+  id                String   @id @default(cuid())
+  adminId           String
+  action            String   // Действие админа
+  targetType        String?  // Тип объекта (user, message, etc.)
+  targetId          String?  // ID объекта
+  details           Json?    // Детали действия
+  createdAt         DateTime @default(now())
+  
+  // Связи
+  admin             Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  @@map("admin_activities")
+}
+
+// Модель для метрик
+model Metric {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  value             Float
+  date              DateTime @default(now())
+  metadata          Json?    // Дополнительные данные метрики
+  
+  @@map("metrics")
+}
+
+// Enums
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+  PENDING
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  MODERATOR
+  VIEWER
+}
+
+enum MessageType {
+  TEXT
+  PHOTO
+  VIDEO
+  AUDIO
+  DOCUMENT
+  STICKER
+  VOICE
+  LOCATION
+  CONTACT
+  OTHER
+}
+
+enum InteractionType {
+  COMMAND_START
+  COMMAND_HELP
+  COMMAND_SETTINGS
+  BUTTON_CLICK
+  MENU_SELECTION
+  PAYMENT
+  SUBSCRIPTION
+  FEEDBACK
+  SUPPORT_REQUEST
+  OTHER
+}
