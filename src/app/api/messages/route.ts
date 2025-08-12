@@ -101,6 +101,7 @@ export async function GET(request: NextRequest) {
           user: {
             select: {
               id: true,
+              telegramId: true,
               username: true,
               firstName: true,
               lastName: true

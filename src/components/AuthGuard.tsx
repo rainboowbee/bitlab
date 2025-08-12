@@ -24,10 +24,10 @@ export default function AuthGuard({ children }: AuthGuardProps) {
 
       // Проверяем, не истек ли токен
       try {
-        const userData = JSON.parse(user)
+        JSON.parse(user) // Проверяем, что JSON валиден
         // Здесь можно добавить дополнительную проверку токена
         setIsAuthenticated(true)
-      } catch (error) {
+      } catch {
         localStorage.removeItem('authToken')
         localStorage.removeItem('user')
         router.push('/login')

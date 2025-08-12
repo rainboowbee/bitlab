@@ -166,7 +166,7 @@ export async function PUT(request: NextRequest) {
     const validated = UpdateUserSchema.parse(body)
 
     // Фильтруем undefined значения
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     Object.entries(validated).forEach(([key, value]) => {
       if (value !== undefined) {
         updateData[key] = value
@@ -175,13 +175,13 @@ export async function PUT(request: NextRequest) {
     
     // Обрабатываем поля даты
     if (updateData.privacyAcceptedAt) {
-      updateData.privacyAcceptedAt = new Date(updateData.privacyAcceptedAt)
+      updateData.privacyAcceptedAt = new Date(updateData.privacyAcceptedAt as string)
     }
     if (updateData.lastTokensIssuedAt) {
-      updateData.lastTokensIssuedAt = new Date(updateData.lastTokensIssuedAt)
+      updateData.lastTokensIssuedAt = new Date(updateData.lastTokensIssuedAt as string)
     }
     if (updateData.lastActivityAt) {
-      updateData.lastActivityAt = new Date(updateData.lastActivityAt)
+      updateData.lastActivityAt = new Date(updateData.lastActivityAt as string)
     }
     
     updateData.updatedAt = new Date()

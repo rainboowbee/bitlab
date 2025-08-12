@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
         messagesByType: messageTypeDistribution,
         interactionsByType: interactionTypeDistribution
       },
-      dailyStats: dailyStats.map((stat: any) => ({
+      dailyStats: (dailyStats as Array<{ date: string; new_users: number; active_users: number }>).map((stat) => ({
         date: stat.date,
         new_users: Number(stat.new_users),
         active_users: Number(stat.active_users)

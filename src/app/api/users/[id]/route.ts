@@ -4,10 +4,9 @@ import { prisma } from '@/lib/prisma'
 // GET /api/users/[id] - Получить пользователя по ID
 export async function GET(
   request: Request,
-  context: unknown
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { params } = await context as { params: Promise<{ id: string }> }
     const resolvedParams = await params
     const user = await prisma.telegramUser.findUnique({
       where: { id: resolvedParams.id },
@@ -57,10 +56,9 @@ export async function GET(
 // PUT /api/users/[id] - Обновить пользователя
 export async function PUT(
   request: Request,
-  context: unknown
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { params } = await context as { params: Promise<{ id: string }> }
     const resolvedParams = await params
     const body = await request.json()
     
@@ -135,10 +133,9 @@ export async function PUT(
 // DELETE /api/users/[id] - Удалить пользователя
 export async function DELETE(
   request: Request,
-  context: unknown
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { params } = await context as { params: Promise<{ id: string }> }
     const resolvedParams = await params
     // Проверяем, существует ли пользователь
     const existingUser = await prisma.telegramUser.findUnique({

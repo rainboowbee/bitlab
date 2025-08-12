@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     // В JWT-based аутентификации сервер не хранит состояние сессий,
     // поэтому просто возвращаем успешный ответ

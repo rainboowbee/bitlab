@@ -31,7 +31,7 @@ export default function Dashboard() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState('7d')
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<{ firstName: string; lastName: string; role: string } | null>(null)
   const router = useRouter()
 
   useEffect(() => {
