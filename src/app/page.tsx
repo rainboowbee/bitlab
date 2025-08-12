@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import AuthGuard from '@/components/AuthGuard'
 
 interface Metrics {
   period: string
@@ -29,9 +31,16 @@ export default function Dashboard() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState('7d')
+  const [user, setUser] = useState<any>(null)
+  const router = useRouter()
 
   useEffect(() => {
     fetchMetrics()
+    // Получаем информацию о пользователе из localStorage
+    const userData = localStorage.getItem('user')
+    if (userData) {
+      setUser(JSON.parse(userData))
+    }
   }, [period])
 
   const fetchMetrics = async () => {
@@ -47,6 +56,17 @@ export default function Dashboard() {
     }
   }
 
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+      localStorage.removeItem('authToken')
+      localStorage.removeItem('user')
+      router.push('/login')
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -56,7 +76,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AuthGuard>
+      <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -65,7 +86,7 @@ export default function Dashboard() {
               <h1 className="text-3xl font-bold text-gray-900">Telegram Bot CRM</h1>
               <p className="text-gray-600">Управление пользователями и аналитика</p>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex items-center space-x-4">
               <Link 
                 href="/users" 
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
@@ -84,6 +105,23 @@ export default function Dashboard() {
               >
                 Взаимодействия
               </Link>
+              
+              {/* Информация о пользователе */}
+              {user && (
+                <div className="flex items-center space-x-3 ml-4 pl-4 border-l border-gray-300">
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium">{user.firstName} {user.lastName}</span>
+                    <br />
+                    <span className="text-xs">{user.role}</span>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                  >
+                    Выход
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -238,7 +276,8 @@ export default function Dashboard() {
             </div>
           </>
         )}
-      </main>
-    </div>
+              </main>
+      </div>
+    </AuthGuard>
   )
 }

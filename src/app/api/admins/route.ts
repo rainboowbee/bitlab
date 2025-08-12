@@ -53,12 +53,17 @@ export async function GET(request: NextRequest) {
     ])
     
     return NextResponse.json({
-      admins,
+      admins: admins.map(admin => ({
+        ...admin,
+        _count: {
+          activities: Number(admin._count.activities)
+        }
+      })),
       pagination: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit)
+        total: Number(total),
+        pages: Math.ceil(Number(total) / limit)
       }
     })
   } catch (error) {

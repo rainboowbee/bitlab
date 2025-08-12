@@ -14,6 +14,8 @@ interface User {
   languageCode: string | null
   isPremium: boolean
   isBot: boolean
+  hasSubscription: boolean
+  tokenBalance: number
   status: string
   tags: string[]
   notes: string | null
@@ -57,7 +59,9 @@ export default function UserDetailPage() {
   const [formData, setFormData] = useState({
     status: '',
     tags: '',
-    notes: ''
+    notes: '',
+    hasSubscription: false,
+    tokenBalance: 0
   })
 
   useEffect(() => {
@@ -78,7 +82,9 @@ export default function UserDetailPage() {
       setFormData({
         status: data.status,
         tags: data.tags.join(', '),
-        notes: data.notes || ''
+        notes: data.notes || '',
+        hasSubscription: data.hasSubscription,
+        tokenBalance: data.tokenBalance
       })
     } catch (error) {
       console.error('Error fetching user:', error)
@@ -99,7 +105,9 @@ export default function UserDetailPage() {
           ...user,
           status: formData.status,
           tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
-          notes: formData.notes
+          notes: formData.notes,
+          hasSubscription: formData.hasSubscription,
+          tokenBalance: Number(formData.tokenBalance)
         })
       })
 
@@ -257,6 +265,37 @@ export default function UserDetailPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Premium</label>
                   <p className="mt-1 text-sm text-gray-900">{user.isPremium ? 'Да' : 'Нет'}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Подписка</label>
+                  {editing ? (
+                    <select
+                      value={formData.hasSubscription ? 'true' : 'false'}
+                      onChange={(e) => setFormData(prev => ({ ...prev, hasSubscription: e.target.value === 'true' }))}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="true">Активна</option>
+                      <option value="false">Неактивна</option>
+                    </select>
+                  ) : (
+                    <p className="mt-1 text-sm text-gray-900">{user.hasSubscription ? 'Активна' : 'Нет'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Баланс токенов</label>
+                  {editing ? (
+                    <input
+                      type="number"
+                      min={0}
+                      value={formData.tokenBalance}
+                      onChange={(e) => setFormData(prev => ({ ...prev, tokenBalance: Number(e.target.value) }))}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <p className="mt-1 text-sm text-gray-900">{user.tokenBalance}</p>
+                  )}
                 </div>
 
                 <div>

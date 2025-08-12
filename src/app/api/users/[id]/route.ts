@@ -7,9 +7,10 @@ export async function GET(
   context: unknown
 ) {
   try {
-    const { params } = context as { params: { id: string } }
+    const { params } = await context as { params: Promise<{ id: string }> }
+    const resolvedParams = await params
     const user = await prisma.telegramUser.findUnique({
-      where: { id: params.id },
+      where: { id: resolvedParams.id },
       include: {
         messages: {
           orderBy: { timestamp: 'desc' },
@@ -35,7 +36,15 @@ export async function GET(
       )
     }
     
-    return NextResponse.json(user)
+    return NextResponse.json({
+      ...user,
+      telegramId: Number(user.telegramId),
+      tokenBalance: Number(user.tokenBalance),
+      _count: {
+        messages: Number(user._count.messages),
+        interactions: Number(user._count.interactions)
+      }
+    })
   } catch (error) {
     console.error('Error fetching user:', error)
     return NextResponse.json(
@@ -51,7 +60,8 @@ export async function PUT(
   context: unknown
 ) {
   try {
-    const { params } = context as { params: { id: string } }
+    const { params } = await context as { params: Promise<{ id: string }> }
+    const resolvedParams = await params
     const body = await request.json()
     
     const {
@@ -61,6 +71,11 @@ export async function PUT(
       phoneNumber,
       languageCode,
       isPremium,
+      hasSubscription,
+      tokenBalance,
+      privacyAccepted,
+      privacyAcceptedAt,
+      lastTokensIssuedAt,
       isBot,
       status,
       tags,
@@ -70,7 +85,7 @@ export async function PUT(
     
     // Проверяем, существует ли пользователь
     const existingUser = await prisma.telegramUser.findUnique({
-      where: { id: params.id }
+      where: { id: resolvedParams.id }
     })
     
     if (!existingUser) {
@@ -82,7 +97,7 @@ export async function PUT(
     
     // Обновляем пользователя
     const updatedUser = await prisma.telegramUser.update({
-      where: { id: params.id },
+      where: { id: resolvedParams.id },
       data: {
         username,
         firstName,
@@ -90,6 +105,11 @@ export async function PUT(
         phoneNumber,
         languageCode,
         isPremium,
+        hasSubscription,
+        tokenBalance,
+        privacyAccepted,
+        privacyAcceptedAt: privacyAcceptedAt ? new Date(privacyAcceptedAt) : undefined,
+        lastTokensIssuedAt: lastTokensIssuedAt ? new Date(lastTokensIssuedAt) : undefined,
         isBot,
         status,
         tags,
@@ -99,7 +119,10 @@ export async function PUT(
       }
     })
     
-    return NextResponse.json(updatedUser)
+    return NextResponse.json({
+      ...updatedUser,
+      telegramId: Number(updatedUser.telegramId)
+    })
   } catch (error) {
     console.error('Error updating user:', error)
     return NextResponse.json(
@@ -115,10 +138,11 @@ export async function DELETE(
   context: unknown
 ) {
   try {
-    const { params } = context as { params: { id: string } }
+    const { params } = await context as { params: Promise<{ id: string }> }
+    const resolvedParams = await params
     // Проверяем, существует ли пользователь
     const existingUser = await prisma.telegramUser.findUnique({
-      where: { id: params.id }
+      where: { id: resolvedParams.id }
     })
     
     if (!existingUser) {
@@ -130,7 +154,7 @@ export async function DELETE(
     
     // Удаляем пользователя (каскадно удалятся сообщения и взаимодействия)
     await prisma.telegramUser.delete({
-      where: { id: params.id }
+      where: { id: resolvedParams.id }
     })
     
     return NextResponse.json({ message: 'User deleted successfully' })

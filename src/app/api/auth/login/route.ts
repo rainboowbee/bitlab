@@ -1,66 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
-import { verifyPassword, createAdminSession } from '@/lib/auth'
 
-// POST /api/auth/login - Вход админа
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { email, password } = body
-    
-    // Проверяем обязательные поля
-    if (!email || !password) {
+    const { username, password } = await request.json()
+
+    if (!username || !password) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { message: 'Имя пользователя и пароль обязательны' },
         { status: 400 }
       )
     }
-    
-    // Ищем админа по email
-    const admin = await prisma.admin.findUnique({
-      where: { email: email.toLowerCase() }
+
+    // Ищем пользователя в базе данных
+    const user = await prisma.admin.findUnique({
+      where: { email: username.toLowerCase() }
     })
-    
-    if (!admin) {
+
+    if (!user) {
       return NextResponse.json(
-        { error: 'Invalid credentials' },
+        { message: 'Неверное имя пользователя или пароль' },
         { status: 401 }
       )
     }
-    
-    // Проверяем, активен ли админ
-    if (!admin.isActive) {
-      return NextResponse.json(
-        { error: 'Account is deactivated' },
-        { status: 401 }
-      )
-    }
-    
+
     // Проверяем пароль
-    const isValidPassword = await verifyPassword(password, admin.password)
-    
+    const isValidPassword = await bcrypt.compare(password, user.password)
+
     if (!isValidPassword) {
       return NextResponse.json(
-        { error: 'Invalid credentials' },
+        { message: 'Неверное имя пользователя или пароль' },
         { status: 401 }
       )
     }
-    
-    // Создаем сессию
-    await createAdminSession(admin.id)
-    
-    // Возвращаем данные админа (без пароля)
-    const { password: _password, ...adminData } = admin
-    void _password
+
+    // Создаем JWT токен
+    const token = jwt.sign(
+      { 
+        userId: user.id, 
+        username: user.username,
+        role: user.role 
+      },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    )
+
+    // Обновляем время последнего входа
+    await prisma.admin.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() }
+    })
 
     return NextResponse.json({
-      admin: adminData,
-      message: 'Login successful'
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName
+      }
     })
+
   } catch (error) {
-    console.error('Error during login:', error)
+    console.error('Login error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { message: 'Внутренняя ошибка сервера' },
       { status: 500 }
     )
   }
