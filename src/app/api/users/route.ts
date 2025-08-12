@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma'
+import { CreateUserSchema, UpdateUserSchema } from '@/lib/validation'
 
 // GET /api/users - Получить список пользователей
 export async function GET(request: NextRequest) {
@@ -10,26 +12,37 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const search = searchParams.get('search')
     const tag = searchParams.get('tag')
+    const hasSubscription = searchParams.get('hasSubscription')
     
     const skip = (page - 1) * limit
     
     // Формируем фильтры
-    const where: any = {}
+    const where: Prisma.TelegramUserWhereInput = {}
     
     if (status) {
-      where.status = status
+      where.status = status as import('@/generated/prisma').UserStatus
     }
     
     if (search) {
-      where.OR = [
-        { username: { contains: search, mode: 'insensitive' } },
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } }
-      ]
+      // Проверяем, является ли search числом (telegramId)
+      const searchNumber = parseInt(search)
+      if (!isNaN(searchNumber)) {
+        where.telegramId = BigInt(searchNumber)
+      } else {
+        where.OR = [
+          { username: { contains: search, mode: 'insensitive' } },
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName: { contains: search, mode: 'insensitive' } }
+        ]
+      }
     }
     
     if (tag) {
       where.tags = { has: tag }
+    }
+
+    if (hasSubscription !== null && hasSubscription !== undefined) {
+      where.hasSubscription = hasSubscription === 'true'
     }
     
     // Получаем пользователей с пагинацией
@@ -52,12 +65,20 @@ export async function GET(request: NextRequest) {
     ])
     
     return NextResponse.json({
-      users,
+      users: users.map(user => ({
+        ...user,
+        telegramId: Number(user.telegramId),
+        tokenBalance: Number(user.tokenBalance),
+        _count: {
+          messages: Number(user._count.messages),
+          interactions: Number(user._count.interactions)
+        }
+      })),
       pagination: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit)
+        total: Number(total),
+        pages: Math.ceil(Number(total) / limit)
       }
     })
   } catch (error) {
@@ -74,29 +95,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    const {
-      telegramId,
-      username,
-      firstName,
-      lastName,
-      phoneNumber,
-      languageCode,
-      isPremium = false,
-      isBot = false,
-      source
-    } = body
-    
-    // Проверяем обязательные поля
-    if (!telegramId) {
-      return NextResponse.json(
-        { error: 'telegramId is required' },
-        { status: 400 }
-      )
-    }
+    // Валидируем входные данные
+    const validatedData = CreateUserSchema.parse(body)
     
     // Проверяем, существует ли пользователь
     const existingUser = await prisma.telegramUser.findUnique({
-      where: { telegramId: BigInt(telegramId) }
+      where: { telegramId: BigInt(validatedData.telegramId) }
     })
     
     if (existingUser) {
@@ -109,23 +113,94 @@ export async function POST(request: NextRequest) {
     // Создаем нового пользователя
     const user = await prisma.telegramUser.create({
       data: {
-        telegramId: BigInt(telegramId),
-        username,
-        firstName,
-        lastName,
-        phoneNumber,
-        languageCode,
-        isPremium,
-        isBot,
-        source,
-        tags: [],
-        status: 'ACTIVE'
+        telegramId: BigInt(validatedData.telegramId),
+        username: validatedData.username === null ? null : validatedData.username,
+        firstName: validatedData.firstName === null ? null : validatedData.firstName,
+        lastName: validatedData.lastName === null ? null : validatedData.lastName,
+        phoneNumber: validatedData.phoneNumber === null ? null : validatedData.phoneNumber,
+        languageCode: validatedData.languageCode === null ? null : validatedData.languageCode,
+        isPremium: validatedData.isPremium === null ? false : validatedData.isPremium,
+        isBot: validatedData.isBot === null ? false : validatedData.isBot,
+        hasSubscription: validatedData.hasSubscription === null ? false : validatedData.hasSubscription,
+        tokenBalance: validatedData.tokenBalance === null ? 0 : validatedData.tokenBalance,
+        privacyAccepted: validatedData.privacyAccepted === null ? false : validatedData.privacyAccepted,
+        privacyAcceptedAt: validatedData.privacyAcceptedAt ? new Date(validatedData.privacyAcceptedAt) : null,
+        lastTokensIssuedAt: validatedData.lastTokensIssuedAt ? new Date(validatedData.lastTokensIssuedAt) : null,
+        source: validatedData.source === null ? null : validatedData.source,
+        tags: validatedData.tags,
+        status: validatedData.status
       }
     })
     
-    return NextResponse.json(user, { status: 201 })
+    return NextResponse.json({
+      ...user,
+      telegramId: Number(user.telegramId)
+    }, { status: 201 })
   } catch (error) {
+    if (error instanceof Error && error.name === 'ZodError') {
+      console.error('Validation error:', error.message)
+      return NextResponse.json(
+        { error: 'Validation error', details: error.message },
+        { status: 400 }
+      )
+    }
+    
     console.error('Error creating user:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+// PUT /api/users?telegramId=123 - Обновить пользователя по telegramId
+export async function PUT(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const telegramIdParam = searchParams.get('telegramId')
+    if (!telegramIdParam) {
+      return NextResponse.json({ error: 'telegramId is required' }, { status: 400 })
+    }
+
+    const body = await request.json()
+    const validated = UpdateUserSchema.parse(body)
+
+    // Фильтруем undefined значения
+    const updateData: Record<string, unknown> = {}
+    Object.entries(validated).forEach(([key, value]) => {
+      if (value !== undefined) {
+        updateData[key] = value
+      }
+    })
+    
+    // Обрабатываем поля даты
+    if (updateData.privacyAcceptedAt) {
+      updateData.privacyAcceptedAt = new Date(updateData.privacyAcceptedAt as string)
+    }
+    if (updateData.lastTokensIssuedAt) {
+      updateData.lastTokensIssuedAt = new Date(updateData.lastTokensIssuedAt as string)
+    }
+    if (updateData.lastActivityAt) {
+      updateData.lastActivityAt = new Date(updateData.lastActivityAt as string)
+    }
+    
+    updateData.updatedAt = new Date()
+
+    const user = await prisma.telegramUser.update({
+      where: { telegramId: BigInt(telegramIdParam) },
+      data: updateData
+    })
+
+    return NextResponse.json({ ...user, telegramId: Number(user.telegramId) })
+  } catch (error) {
+    if (error instanceof Error && error.name === 'ZodError') {
+      console.error('Validation error:', error.message)
+      return NextResponse.json(
+        { error: 'Validation error', details: error.message },
+        { status: 400 }
+      )
+    }
+    console.error('Error updating user by telegramId:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

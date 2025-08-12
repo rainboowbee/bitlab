@@ -13,6 +13,8 @@ interface User {
   languageCode: string | null
   isPremium: boolean
   isBot: boolean
+  hasSubscription: boolean
+  tokenBalance: number
   status: string
   tags: string[]
   notes: string | null
@@ -48,7 +50,8 @@ export default function UsersPage() {
   const [filters, setFilters] = useState({
     status: '',
     search: '',
-    tag: ''
+    tag: '',
+    hasSubscription: ''
   })
 
   useEffect(() => {
@@ -63,7 +66,8 @@ export default function UsersPage() {
         limit: pagination.limit.toString(),
         ...(filters.status && { status: filters.status }),
         ...(filters.search && { search: filters.search }),
-        ...(filters.tag && { tag: filters.tag })
+        ...(filters.tag && { tag: filters.tag }),
+        ...(filters.hasSubscription && { hasSubscription: filters.hasSubscription })
       })
 
       const response = await fetch(`/api/users?${params}`)
@@ -174,6 +178,20 @@ export default function UsersPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Подписка
+              </label>
+              <select
+                value={filters.hasSubscription}
+                onChange={(e) => handleFilterChange('hasSubscription', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Все</option>
+                <option value="true">Активна</option>
+                <option value="false">Неактивна</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -194,6 +212,12 @@ export default function UsersPage() {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Активность
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Подписка
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Баланс токенов
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Сообщения
@@ -241,6 +265,12 @@ export default function UsersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {new Date(user.lastActivityAt).toLocaleDateString('ru-RU')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {user.hasSubscription ? 'Активна' : 'Нет'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {user.tokenBalance}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {user._count.messages}

@@ -1,32 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma'
+import { CreateMessageSchema } from '@/lib/validation'
 
 // POST /api/messages - Создать новое сообщение
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    const {
-      telegramUserId,
-      messageId,
-      chatId,
-      text,
-      messageType = 'TEXT',
-      timestamp,
-      isFromBot = false
-    } = body
-    
-    // Проверяем обязательные поля
-    if (!telegramUserId || !messageId || !chatId) {
-      return NextResponse.json(
-        { error: 'telegramUserId, messageId, and chatId are required' },
-        { status: 400 }
-      )
-    }
+    // Валидируем входные данные
+    const validatedData = CreateMessageSchema.parse(body)
     
     // Проверяем, существует ли пользователь
     const user = await prisma.telegramUser.findUnique({
-      where: { id: telegramUserId }
+      where: { id: validatedData.telegramUserId }
     })
     
     if (!user) {
@@ -39,24 +26,35 @@ export async function POST(request: NextRequest) {
     // Создаем сообщение
     const message = await prisma.message.create({
       data: {
-        telegramUserId,
-        messageId: BigInt(messageId),
-        chatId: BigInt(chatId),
-        text,
-        messageType,
-        timestamp: timestamp ? new Date(timestamp) : new Date(),
-        isFromBot
+        telegramUserId: validatedData.telegramUserId,
+        messageId: BigInt(validatedData.messageId),
+        chatId: BigInt(validatedData.chatId),
+        text: validatedData.text,
+        messageType: validatedData.messageType,
+        timestamp: validatedData.timestamp ? new Date(validatedData.timestamp) : new Date(),
+        isFromBot: validatedData.isFromBot
       }
     })
     
     // Обновляем время последней активности пользователя
     await prisma.telegramUser.update({
-      where: { id: telegramUserId },
+      where: { id: validatedData.telegramUserId },
       data: { lastActivityAt: new Date() }
     })
     
-    return NextResponse.json(message, { status: 201 })
+    return NextResponse.json({
+      ...message,
+      messageId: Number(message.messageId),
+      chatId: Number(message.chatId)
+    }, { status: 201 })
   } catch (error) {
+    if (error instanceof Error && error.name === 'ZodError') {
+      return NextResponse.json(
+        { error: 'Validation error', details: error.message },
+        { status: 400 }
+      )
+    }
+    
     console.error('Error creating message:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -78,17 +76,17 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
     
     // Формируем фильтры
-    const where: any = {}
+    const where: Prisma.MessageWhereInput = {}
     
     if (telegramUserId) {
       where.telegramUserId = telegramUserId
     }
     
     if (messageType) {
-      where.messageType = messageType
+      where.messageType = messageType as import('@/generated/prisma').MessageType
     }
     
-    if (isFromBot !== null) {
+  if (isFromBot !== null && isFromBot !== undefined) {
       where.isFromBot = isFromBot === 'true'
     }
     
@@ -103,6 +101,7 @@ export async function GET(request: NextRequest) {
           user: {
             select: {
               id: true,
+              telegramId: true,
               username: true,
               firstName: true,
               lastName: true
@@ -114,12 +113,20 @@ export async function GET(request: NextRequest) {
     ])
     
     return NextResponse.json({
-      messages,
+      messages: messages.map(message => ({
+        ...message,
+        messageId: Number(message.messageId),
+        chatId: Number(message.chatId),
+        user: message.user ? {
+          ...message.user,
+          telegramId: Number(message.user.telegramId)
+        } : null
+      })),
       pagination: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit)
+        total: Number(total),
+        pages: Math.ceil(Number(total) / limit)
       }
     })
   } catch (error) {

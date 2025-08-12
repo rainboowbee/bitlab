@@ -5,49 +5,51 @@ const prisma = new PrismaClient()
 
 async function createAdmin() {
   try {
-    console.log('Создание первого админа...')
-    
-    // Данные для создания админа
-    const adminData = {
-      email: 'admin@example.com',
-      password: 'admin123', // Измените на безопасный пароль
-      firstName: 'Администратор',
-      lastName: 'Системы',
-      role: 'SUPER_ADMIN'
+    const email = process.argv[2]
+    const password = process.argv[3]
+    const firstName = process.argv[4] || 'Admin'
+    const lastName = process.argv[5] || 'User'
+
+    if (!email || !password) {
+      console.error('Usage: node create-admin.js <email> <password> [firstName] [lastName]')
+      console.error('Example: node create-admin.js admin@example.com mypassword "John" "Doe"')
+      process.exit(1)
     }
-    
+
     // Проверяем, существует ли уже админ с таким email
     const existingAdmin = await prisma.admin.findUnique({
-      where: { email: adminData.email }
+      where: { email: email.toLowerCase() }
     })
-    
+
     if (existingAdmin) {
-      console.log('Админ с таким email уже существует!')
-      return
+      console.error('Admin with this email already exists')
+      process.exit(1)
     }
-    
+
     // Хешируем пароль
-    const hashedPassword = await bcrypt.hash(adminData.password, 12)
-    
+    const hashedPassword = await bcrypt.hash(password, 12)
+
     // Создаем админа
     const admin = await prisma.admin.create({
       data: {
-        email: adminData.email,
+        email: email.toLowerCase(),
         password: hashedPassword,
-        firstName: adminData.firstName,
-        lastName: adminData.lastName,
-        role: adminData.role
+        firstName,
+        lastName,
+        role: 'SUPER_ADMIN',
+        isActive: true
       }
     })
-    
-    console.log('✅ Админ успешно создан!')
-    console.log('Email:', admin.email)
-    console.log('Пароль:', adminData.password)
-    console.log('Роль:', admin.role)
-    console.log('\n⚠️  Не забудьте изменить пароль после первого входа!')
-    
+
+    console.log('✅ Admin created successfully!')
+    console.log(`ID: ${admin.id}`)
+    console.log(`Email: ${admin.email}`)
+    console.log(`Name: ${admin.firstName} ${admin.lastName}`)
+    console.log(`Role: ${admin.role}`)
+    console.log('\nYou can now login to the CRM with these credentials.')
+
   } catch (error) {
-    console.error('❌ Ошибка при создании админа:', error)
+    console.error('Error creating admin:', error)
   } finally {
     await prisma.$disconnect()
   }

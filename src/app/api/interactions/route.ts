@@ -1,29 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma'
+import { CreateInteractionSchema } from '@/lib/validation'
 
 // POST /api/interactions - Создать новое взаимодействие
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    const {
-      telegramUserId,
-      interactionType,
-      description,
-      metadata
-    } = body
-    
-    // Проверяем обязательные поля
-    if (!telegramUserId || !interactionType) {
-      return NextResponse.json(
-        { error: 'telegramUserId and interactionType are required' },
-        { status: 400 }
-      )
-    }
+    // Валидируем входные данные
+    const validatedData = CreateInteractionSchema.parse(body)
     
     // Проверяем, существует ли пользователь
     const user = await prisma.telegramUser.findUnique({
-      where: { id: telegramUserId }
+      where: { id: validatedData.telegramUserId }
     })
     
     if (!user) {
@@ -36,21 +26,28 @@ export async function POST(request: NextRequest) {
     // Создаем взаимодействие
     const interaction = await prisma.interaction.create({
       data: {
-        telegramUserId,
-        interactionType,
-        description,
-        metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : null
+        telegramUserId: validatedData.telegramUserId,
+        interactionType: validatedData.interactionType,
+        description: validatedData.description,
+        metadata: validatedData.metadata ? JSON.parse(JSON.stringify(validatedData.metadata)) : null
       }
     })
     
     // Обновляем время последней активности пользователя
     await prisma.telegramUser.update({
-      where: { id: telegramUserId },
+      where: { id: validatedData.telegramUserId },
       data: { lastActivityAt: new Date() }
     })
     
     return NextResponse.json(interaction, { status: 201 })
   } catch (error) {
+    if (error instanceof Error && error.name === 'ZodError') {
+      return NextResponse.json(
+        { error: 'Validation error', details: error.message },
+        { status: 400 }
+      )
+    }
+    
     console.error('Error creating interaction:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -71,14 +68,14 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
     
     // Формируем фильтры
-    const where: any = {}
+    const where: Prisma.InteractionWhereInput = {}
     
     if (telegramUserId) {
       where.telegramUserId = telegramUserId
     }
     
     if (interactionType) {
-      where.interactionType = interactionType
+      where.interactionType = interactionType as import('@/generated/prisma').InteractionType
     }
     
     // Получаем взаимодействия с пагинацией
@@ -94,7 +91,8 @@ export async function GET(request: NextRequest) {
               id: true,
               username: true,
               firstName: true,
-              lastName: true
+              lastName: true,
+              telegramId: true
             }
           }
         }
@@ -103,12 +101,18 @@ export async function GET(request: NextRequest) {
     ])
     
     return NextResponse.json({
-      interactions,
+      interactions: interactions.map(interaction => ({
+        ...interaction,
+        user: interaction.user ? {
+          ...interaction.user,
+          telegramId: Number(interaction.user.telegramId)
+        } : null
+      })),
       pagination: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit)
+        total: Number(total),
+        pages: Math.ceil(Number(total) / limit)
       }
     })
   } catch (error) {

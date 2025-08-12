@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth'
+import type { Prisma } from '@/generated/prisma'
 
 // GET /api/admins - Получить список админов
 export async function GET(request: NextRequest) {
@@ -14,10 +15,10 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
     
     // Формируем фильтры
-    const where: any = {}
+    const where: Prisma.AdminWhereInput = {}
     
     if (role) {
-      where.role = role
+      where.role = role as import('@/generated/prisma').AdminRole
     }
     
     if (isActive !== null) {
@@ -52,12 +53,17 @@ export async function GET(request: NextRequest) {
     ])
     
     return NextResponse.json({
-      admins,
+      admins: admins.map(admin => ({
+        ...admin,
+        _count: {
+          activities: Number(admin._count.activities)
+        }
+      })),
       pagination: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit)
+        total: Number(total),
+        pages: Math.ceil(Number(total) / limit)
       }
     })
   } catch (error) {

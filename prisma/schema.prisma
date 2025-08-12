@@ -25,6 +25,11 @@ model TelegramUser {
   languageCode      String?  // Код языка пользователя
   isPremium         Boolean  @default(false) // Telegram Premium статус
   isBot             Boolean  @default(false) // Является ли ботом
+  hasSubscription   Boolean  @default(false) // Активна ли подписка в нашей системе
+  tokenBalance      Int      @default(0) // Баланс токенов пользователя
+  privacyAccepted   Boolean  @default(false) // Принял ли пользователь политику конфиденциальности
+  privacyAcceptedAt DateTime?
+  lastTokensIssuedAt DateTime? // Дата последней выдачи дневных токенов
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   lastActivityAt    DateTime @default(now()) // Последняя активность
@@ -36,6 +41,7 @@ model TelegramUser {
   // Связи
   messages          Message[]
   interactions      Interaction[]
+  tokenUsages       TokenUsage[]
   
   @@map("telegram_users")
 }
@@ -119,6 +125,24 @@ model Metric {
   @@map("metrics")
 }
 
+// Модель для учета использования токенов ИИ
+model TokenUsage {
+  id               String   @id @default(cuid())
+  telegramUserId   String
+  model            String
+  promptTokens     Int
+  completionTokens Int
+  totalTokens      Int
+  cost             Float?
+  source           String?
+  createdAt        DateTime @default(now())
+
+  user             TelegramUser @relation(fields: [telegramUserId], references: [id], onDelete: Cascade)
+
+  @@index([telegramUserId])
+  @@map("token_usage")
+}
+
 // Enums
 enum UserStatus {
   ACTIVE
@@ -157,5 +181,15 @@ enum InteractionType {
   SUBSCRIPTION
   FEEDBACK
   SUPPORT_REQUEST
+  START
+  DOMAIN_SELECTED
+  CATEGORY_SELECTED
+  BUTTON_PROFILE
+  BUTTON_DOMAINS
+  BUTTON_SUPPORT
+  BACK_TO_MAIN
+  PARSER_START
+  SUBSCRIPTION_REQUEST
+  SUBSCRIPTION_PAYMENT
   OTHER
 }

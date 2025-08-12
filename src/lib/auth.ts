@@ -30,19 +30,21 @@ export async function createAdminSession(adminId: string) {
 }
 
 export async function logAdminActivity(
-  adminId: string, 
-  action: string, 
-  targetType?: string, 
-  targetId?: string, 
-  details?: any
+  adminId: string,
+  action: string,
+  targetType?: string,
+  targetId?: string,
+  details?: unknown
 ) {
+  const safeDetails = details ? JSON.parse(JSON.stringify(details)) : null
+
   await prisma.adminActivity.create({
     data: {
       adminId,
       action,
       targetType,
       targetId,
-      details: details ? JSON.parse(JSON.stringify(details)) : null
-    }
+      details: safeDetails,
+    },
   })
 }
